@@ -48,6 +48,8 @@ size_t tool_header_cb(void *ptr, size_t size, size_t nmemb, void *userdata)
   const size_t cb = size * nmemb;
   const char *end = (char*)ptr + cb;
 
+  int encoded_file_name = FALSE;
+  
   /*
    * Once that libcurl has called back tool_header_cb() the returned value
    * is checked against the amount that was intended to be written, if
@@ -92,6 +94,7 @@ size_t tool_header_cb(void *ptr, size_t size, size_t nmemb, void *userdata)
     for(;;) {
       char *filename;
       size_t len;
+	  char* enc_ptr;	  
 
       while(*p && (p < end) && !ISALPHA(*p))
         p++;
@@ -106,11 +109,34 @@ size_t tool_header_cb(void *ptr, size_t size, size_t nmemb, void *userdata)
       }
       p += 9;
 
+	  enc_ptr = strstr(str + 20, "filename*=");
+      if (enc_ptr) {
+	  	char* fntmp = NULL;
+		size_t fnlen = 0;
+        enc_ptr += 10;
+
+		fntmp = strstr(enc_ptr, "UTF-8''");
+				
+		if (fntmp != NULL) 
+		{
+			CURL* curl;
+			curl = curl_easy_init();
+			filename = curl_easy_unescape(curl,  fntmp + 7, strlen(fntmp + 7),&fnlen);
+			curl_easy_cleanup(curl);
+		}
+        encoded_file_name = TRUE;
+
+		//filename = strdup
+		fprintf(stderr, "STR=%s\n\n", filename);
+      }
+	  
       /* this expression below typecasts 'cb' only to avoid
          warning: signed and unsigned type in conditional expression
       */
       len = (ssize_t)cb - (p - str);
-      filename = parse_filename(p, len);
+	  if (encoded_file_name == FALSE)
+		filename = parse_filename(p, len);
+
       if(filename) {
         outs->filename = filename;
         outs->alloc_filename = TRUE;
@@ -127,6 +153,15 @@ size_t tool_header_cb(void *ptr, size_t size, size_t nmemb, void *userdata)
   }
 
   return cb;
+}
+
+/*
+Content-Disposition: attachment; filename="SCORE PKI For Java ???-v37-20121128_1049.pdf"; filename*=UTF-8''%53%43%4f%52%45%20%50%4b%49%20%46%6f%72%20%4a%61%76%61%20%eb%a7%a4%eb%89%b4%ec%96%bc%2d%76%33%37%2d%32%30%31%32%31%31%32%38%5f%31%30%34%39.pdf
+*/
+
+static char *parse_decoded_filename(const char *ptr, size_t len)
+{
+return "";
 }
 
 /*
